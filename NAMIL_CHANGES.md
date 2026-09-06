@@ -34,3 +34,14 @@ Official API references checked:
 FastMCP security fixes inform the runtime selection:
 - https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-rww4-4w9c-7733
 - https://github.com/PrefectHQ/fastmcp/security/advisories/GHSA-5h2m-4q8j-pqpj
+
+OAuth storage fix, 2026-09-06:
+- Apply FileTree V1 key and collection sanitization so URL-based CIMD client IDs
+  do not become nested paths and crash the authorization endpoint.
+- Create the OAuth storage directory before inspecting filesystem name limits.
+- Regression coverage exercises authorization and consent with URL client IDs,
+  encrypted disk persistence after restart, and dynamic client registration.
+- The sanitized storage names differ from the initial implementation. Start a
+  fresh ChatGPT connection/login after deploying this fix; previous OAuth state
+  is not migrated. API archives and the configured encryption key are unchanged.
+- Reference: https://gofastmcp.com/servers/storage-backends#file-storage

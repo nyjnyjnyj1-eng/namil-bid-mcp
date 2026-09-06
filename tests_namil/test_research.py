@@ -177,10 +177,9 @@ def test_mcp_discovery_query_pagination_and_full_row_read(monkeypatch, tmp_path)
     asyncio.run(scenario())
 
 
-def test_production_http_requires_login_and_advertises_oauth(monkeypatch, tmp_path):
-    import httpx
+@pytest.fixture
+def production_settings(monkeypatch):
     from cryptography.fernet import Fernet
-    from namil.server import create_server
     settings = {
         "NAMIL_BASE_URL": "https://example.test", "NAMIL_GITHUB_CLIENT_ID": "test-client-id",
         "NAMIL_GITHUB_CLIENT_SECRET": "test-client-secret", "NAMIL_ALLOWED_GITHUB_IDS": "12345",
@@ -189,6 +188,12 @@ def test_production_http_requires_login_and_advertises_oauth(monkeypatch, tmp_pa
     }
     for name, value in settings.items():
         monkeypatch.setenv(name, value)
+    return settings
+
+
+def test_production_http_requires_login_and_advertises_oauth(production_settings, tmp_path):
+    import httpx
+    from namil.server import create_server
     server = create_server(mode="production", directory=str(tmp_path))
     app = server.http_app(path="/mcp", stateless_http=True)
     async def scenario():
@@ -200,4 +205,79 @@ def test_production_http_requires_login_and_advertises_oauth(monkeypatch, tmp_pa
             metadata = await client.get("/.well-known/oauth-authorization-server")
             assert metadata.status_code == 200
             assert metadata.json()["authorization_endpoint"].startswith("https://example.test/")
+    asyncio.run(scenario())
+
+
+def test_cimd_url_authorization_consent_and_restart(production_settings, monkeypatch, tmp_path):
+    """Exercise the URL client ID path that crashed during ChatGPT authorization."""
+    import httpx
+    from fastmcp.server.auth.cimd import CIMDDocument, CIMDFetcher
+    from namil.server import create_server, production_auth
+
+    redirect_uri = "https://chatgpt.com/connector_platform/oauth_redirect"
+    client_ids = ["https://chatgpt.com/oauth/offline-test", "https://chatgpt.com/oauth/offline_test"]
+    documents = {client_id: CIMDDocument(
+        client_id=client_id, client_name=f"Offline client {i}",
+        redirect_uris=[redirect_uri], scope="read:user",
+    ) for i, client_id in enumerate(client_ids)}
+
+    async def fake_fetch(self, client_id_url):
+        # Only substitute remote metadata retrieval; retain the real auth and storage flow.
+        return documents[client_id_url]
+
+    monkeypatch.setattr(CIMDFetcher, "fetch", fake_fetch)
+    directory = tmp_path / "new" / "data"
+    server = create_server(mode="production", directory=str(directory))
+    app = server.http_app(path="/mcp", stateless_http=True)
+
+    async def scenario():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://example.test") as client:
+            for client_id in client_ids:
+                response = await client.get("/authorize", params={
+                    "client_id": client_id, "redirect_uri": redirect_uri,
+                    "response_type": "code", "scope": "read:user", "state": "offline-state",
+                    "code_challenge": "a" * 43, "code_challenge_method": "S256",
+                    "resource": "https://example.test/mcp",
+                })
+                assert response.status_code == 302
+                consent = await client.get(response.headers["location"])
+                assert consent.status_code == 200
+                assert documents[client_id].client_name in consent.text
+
+        # Recreate the provider with the same disk and encryption key, without fetching metadata.
+        restarted = production_auth(str(directory))
+        for client_id in client_ids:
+            saved = await restarted._client_store.get(key=client_id)
+            assert saved is not None and saved.cimd_document == documents[client_id]
+        files = list((directory / "oauth").rglob("*.json"))
+        assert files
+        assert not any("https:" in str(path.relative_to(directory)) for path in files)
+        for path in files:
+            assert "Offline client" not in path.read_text()
+            assert "offline-state" not in path.read_text()
+
+    asyncio.run(scenario())
+
+
+def test_dynamic_client_registration_survives_restart(production_settings, tmp_path):
+    import httpx
+    from namil.server import create_server, production_auth
+
+    server = create_server(mode="production", directory=str(tmp_path))
+    app = server.http_app(path="/mcp", stateless_http=True)
+
+    async def scenario():
+        async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="https://example.test") as client:
+            response = await client.post("/register", json={
+                "client_name": "Offline registered client",
+                "redirect_uris": ["https://example.test/client/callback"],
+                "grant_types": ["authorization_code", "refresh_token"],
+                "response_types": ["code"], "token_endpoint_auth_method": "none",
+            })
+            assert response.status_code == 201
+            client_id = response.json()["client_id"]
+        restarted = production_auth(str(tmp_path))
+        saved = await restarted.get_client(client_id)
+        assert saved is not None and saved.client_name == "Offline registered client"
+
     asyncio.run(scenario())

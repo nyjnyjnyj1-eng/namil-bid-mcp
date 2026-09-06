@@ -33,7 +33,11 @@ class OwnerGitHubProvider(GitHubProvider):
 
 def production_auth(directory: str):
     from cryptography.fernet import Fernet
-    from key_value.aio.stores.filetree import FileTreeStore
+    from key_value.aio.stores.filetree import (
+        FileTreeStore,
+        FileTreeV1CollectionSanitizationStrategy,
+        FileTreeV1KeySanitizationStrategy,
+    )
     from key_value.aio.wrappers.encryption import FernetEncryptionWrapper
 
     required = ("NAMIL_BASE_URL", "NAMIL_GITHUB_CLIENT_ID", "NAMIL_GITHUB_CLIENT_SECRET",
@@ -51,8 +55,16 @@ def production_auth(directory: str):
     signing_key = os.environ["NAMIL_JWT_SIGNING_KEY"]
     if len(signing_key) < 32:
         raise ValueError("NAMIL_JWT_SIGNING_KEY는 32자 이상이어야 합니다.")
+    storage_directory = Path(directory) / "oauth"
+    # The strategies inspect filesystem limits, so create the directory first.
+    storage_directory.mkdir(parents=True, exist_ok=True)
     storage = FernetEncryptionWrapper(
-        FileTreeStore(data_directory=Path(directory) / "oauth"),
+        FileTreeStore(
+            data_directory=storage_directory,
+            # CIMD client IDs are URLs, not safe filesystem paths.
+            key_sanitization_strategy=FileTreeV1KeySanitizationStrategy(storage_directory),
+            collection_sanitization_strategy=FileTreeV1CollectionSanitizationStrategy(storage_directory),
+        ),
         fernet=Fernet(os.environ["NAMIL_STORAGE_KEY"].encode()),
     )
     return OwnerGitHubProvider(
