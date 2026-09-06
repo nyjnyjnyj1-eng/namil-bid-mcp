@@ -1,0 +1,6 @@
+# Construction extension, separate from the upstream v2 runner. Added 2026-09-06.
+fastmcp==3.4.7
+requests==2.34.2
+python-dotenv==1.2.3
+py-key-value-aio[filetree]==0.4.5
+cryptography==50.0.1

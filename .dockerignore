@@ -1,4 +1,6 @@
 # Git
+# Modified 2026-09-06: include extension notice; never package local environments.
+.venv/
 .git
 .gitignore
 .gitmodules
@@ -71,3 +73,4 @@ PROJECT_UPGRADE_REPORT.md
 SMITHERY_DEPLOYMENT.md
 GEMINI.md
 openapi.yaml
+!NAMIL_CHANGES.md

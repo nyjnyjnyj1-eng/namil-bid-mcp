@@ -1,4 +1,10 @@
 # In-package ignore (module specific)
+# Modified 2026-09-06: construction extension metadata and private storage.
+!.devcontainer/devcontainer.json
+data/
+*.sqlite3
+*.sqlite3-*
+*.zip
 # Defer to repo root .gitignore; add module-specific artifacts here.
 
 # Python cache
@@ -50,3 +56,5 @@ GEMINI.md
 docs/.bkit-memory.json
 docs/.pdca-status.json
 
+# Construction extension configuration must be committed.
+!.devcontainer/devcontainer.json

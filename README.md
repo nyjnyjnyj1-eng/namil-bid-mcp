@@ -1,5 +1,11 @@
 # 나라장터 MCP 서버
 
+> **2026-09-06 공사 연구용 확장본:** 처음 시작할 때는
+> [한글 시작 안내서](docs/START_HERE_KO.md)를 읽으세요.
+> 이 확장본은 `requirements-namil-dev.txt`, `python -m namil.server`,
+> `Dockerfile.namil`을 사용합니다. 아래 원본의 실행 명령과 섞지 마세요.
+> 변경 내역과 적용 범위는 [NAMIL_CHANGES.md](NAMIL_CHANGES.md)에 있습니다.
+
 한국 공공조달(G2B) 데이터를 MCP(Model Context Protocol)로 제공하는 FastMCP 2.0 서버입니다.
 
 입찰공고, 낙찰정보, 계약정보, 조달통계, 물품목록, 종합쇼핑몰 등 나라장터의 주요 API를 AI 에이전트가 바로 사용할 수 있도록 통합했습니다.

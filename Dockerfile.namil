@@ -1,0 +1,11 @@
+# Construction extension; added 2026-09-06, Apache-2.0.
+FROM python:3.12-slim
+WORKDIR /app
+COPY requirements-namil.txt ./
+RUN pip install --no-cache-dir -r requirements-namil.txt
+COPY namil ./namil
+COPY LICENSE ./LICENSE
+COPY NAMIL_CHANGES.md ./NAMIL_CHANGES.md
+ENV PYTHONUNBUFFERED=1 NAMIL_MODE=production NAMIL_DATA_DIR=/var/data/namil PORT=8000
+EXPOSE 8000
+CMD ["python", "-m", "namil.server"]
