@@ -45,3 +45,19 @@ OAuth storage fix, 2026-09-06:
   fresh ChatGPT connection/login after deploying this fix; previous OAuth state
   is not migrated. API archives and the configured encryption key are unchanged.
 - Reference: https://gofastmcp.com/servers/storage-backends#file-storage
+
+Opening competitors collection, 2026-09-27:
+- Add the `collect_opening_competitors` MCP tool. It pages through
+  `bidder_ranks` (getOpengResultListInfoOpengCompt) for one notice, archiving
+  every page with the existing SHA-256 snapshot store.
+- Each call fetches at most `max_pages` pages (default 10, max 50);
+  `next_page`/`start_page` resume a longer collection.
+- `complete` is true only for a single call starting at page 1 that reached
+  the last page with a stable total count, no duplicate rows across pages,
+  no short pages and no errors. Pages saved before a mid-collection error are
+  kept and reported with `stopped_reason`.
+- The response reports row counts by notice order/classification/rebid
+  number and distinct business numbers; full rows stay in the archive and are
+  read with `read_saved_rows`.
+- Offline tests: 30 passed. Live API behaviour for multi-page notices still
+  needs verification with a real key.

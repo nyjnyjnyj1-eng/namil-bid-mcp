@@ -116,6 +116,7 @@ def create_server(*, mode: str | None = None, directory: str | None = None) -> F
                 "전체 기간 수집은 구간별 모든 페이지를 조회한 뒤 판단하세요. API 자료는 수집 중 변경될 수 있습니다.",
                 "같은 공고번호의 차수·분류·재입찰번호를 구분하고 원본 식별자를 보존하세요.",
                 "개찰 1순위와 최종 낙찰자는 구분하세요. 결측·유찰·재공고·취소 여부를 별도로 검증하세요.",
+                "collect_opening_competitors는 한 공고의 업체별 순위를 마지막 페이지까지 이어 수집합니다. complete=false이면 전체 업체로 해석하지 마세요.",
                 "예비가격 API는 공개된 개찰 자료의 연구용입니다. 미공개 가격 예측을 보장하지 않습니다.",
                 "해시는 보관 후 변경 여부만 검사합니다. 내용의 정확성은 나라장터 화면·공고문과 대조하세요.",
                 "다른 채팅이나 모델의 영구 학습을 자동으로 변경하지 않습니다.",
@@ -160,6 +161,96 @@ def create_server(*, mode: str | None = None, directory: str | None = None) -> F
                 "next_page": actual_page + 1 if actual_page * actual_rows < total else None,
                 "query_complete_in_this_snapshot": actual_page == 1 and total == len(items),
                 "warnings": warnings, "next_action": "read_saved_rows(snapshot_id, offset=0)로 전체 필드를 읽으세요."}
+
+    @mcp.tool(annotations={"readOnlyHint": True, "destructiveHint": False, "openWorldHint": True})
+    def collect_opening_competitors(
+        notice_number: str, notice_order: str = "", classification_number: str = "",
+        rebid_number: str = "", start_page: int = 1, max_pages: int = 10, rows: int = 100,
+    ) -> dict:
+        """한 공고의 개찰 참여업체(bidder_ranks)를 마지막 페이지까지 이어 수집하고 페이지별 원문을 보관합니다.
+
+        호출 1회에 최대 max_pages 페이지를 조회합니다. complete=false이면 전체 업체로 해석하지 마세요.
+        next_page가 있으면 같은 인수에 start_page=next_page를 넣어 이어서 수집합니다.
+        업체별 전체 필드는 snapshots의 snapshot_id로 read_saved_rows를 호출해 읽습니다.
+        """
+        if not 1 <= max_pages <= 50:
+            raise ToolError("max_pages는 1~50입니다.")
+        snapshots, warnings, preview, groups = [], [], [], {}
+        seen, businesses, totals = set(), set(), []
+        saved = duplicates = 0
+        next_page, stopped = start_page, None
+        for page in range(start_page, start_page + max_pages):
+            try:
+                params = make_params("bidder_ranks", notice_number=notice_number, page=page, rows=rows,
+                                     notice_order=notice_order, classification_number=classification_number,
+                                     rebid_number=rebid_number)
+                raw, payload = fetch_page("bidder_ranks", params)
+                items, total, actual_page, actual_rows = unpack(payload)
+                identifier = archive.save("bidder_ranks", params, raw)
+                meta, _ = archive.load(identifier)
+            except DataError as exc:
+                if not snapshots:
+                    raise ToolError(str(exc)) from None
+                stopped = f"{page}페이지 조회 중단: {exc}"
+                break
+            totals.append(total)
+            expected = min(actual_rows, max(0, total - (actual_page - 1) * actual_rows))
+            if len(items) != expected:
+                warnings.append(f"{actual_page}페이지 행수({len(items)})가 총건수 기준 예상({expected})과 다릅니다.")
+            for item in items:
+                key = json.dumps(item, sort_keys=True, ensure_ascii=False)
+                if key in seen:
+                    duplicates += 1
+                seen.add(key)
+                group = tuple(str(item.get(k, "")) for k in ("bidNtceOrd", "bidClsfcNo", "rbidNo"))
+                groups[group] = groups.get(group, 0) + 1
+                if item.get("prcbdrBizno"):
+                    businesses.add(str(item["prcbdrBizno"]))
+                if len(preview) < 5:
+                    preview.append({k: (str(v)[:200] if isinstance(v, str) else v) for k, v in item.items()
+                                    if k in {"bidNtceOrd", "bidClsfcNo", "rbidNo", "opengRank", "prcbdrBizno",
+                                             "prcbdrNm", "bidprcAmt", "bidprcrt", "rmrk"}})
+            saved += len(items)
+            snapshots.append({"snapshot_id": identifier, "page": actual_page, "rows_saved": len(items),
+                              "collected_at_utc": meta["collected_at_utc"], "sha256": meta["sha256"]})
+            next_page = actual_page + 1 if actual_page * actual_rows < total else None
+            if next_page is None:
+                break
+            if not items:
+                stopped = f"{actual_page}페이지가 총건수보다 먼저 비었습니다. 자료가 바뀌었을 수 있습니다."
+                next_page = None
+                break
+        total = totals[-1]
+        if len(set(totals)) > 1:
+            warnings.append(f"수집 중 총건수가 바뀌었습니다({' → '.join(map(str, totals))}). 처음부터 다시 수집하세요.")
+        if duplicates:
+            warnings.append(f"페이지 사이에 중복 행 {duplicates}건이 있습니다. 누락 가능성이 있으니 다시 수집하세요.")
+        complete = (start_page == 1 and stopped is None and next_page is None and not warnings
+                    and saved == total)
+        if next_page:
+            next_action = "같은 인수에 start_page=next_page를 넣어 이어서 수집하세요."
+        elif stopped or warnings:
+            next_action = "warnings와 stopped_reason을 확인하고 start_page=1부터 다시 수집하세요."
+        elif start_page != 1:
+            next_action = "이어받은 수집입니다. 이전 호출과 rows_saved 합계가 source_total_count와 같은지 확인하세요."
+        else:
+            next_action = "snapshots의 snapshot_id로 read_saved_rows를 호출해 전체 필드를 읽으세요."
+        definition = DATASETS["bidder_ranks"]
+        return {
+            "dataset": "bidder_ranks", "source": definition.source,
+            "endpoint": f"{definition.service}/{definition.operation}",
+            "notice": {"notice_number": notice_number, "notice_order": notice_order,
+                       "classification_number": classification_number, "rebid_number": rebid_number},
+            "source_total_count": total, "pages_fetched": len(snapshots), "rows_saved": saved,
+            "unique_rows": len(seen), "duplicate_rows": duplicates,
+            "distinct_business_numbers": len(businesses) if businesses else None,
+            "rows_by_order_classification_rebid": [
+                {"bidNtceOrd": o, "bidClsfcNo": c, "rbidNo": r, "rows": n} for (o, c, r), n in groups.items()],
+            "start_page": start_page, "snapshots": snapshots, "next_page": next_page, "complete": complete,
+            "stopped_reason": stopped, "warnings": warnings,
+            "preview": preview, "preview_is_partial": True,
+            "next_action": next_action,
+        }
 
     @mcp.tool(annotations={"readOnlyHint": True, "openWorldHint": False})
     def read_saved_rows(snapshot_id: str, offset: int = 0, limit: int = 3) -> dict:
