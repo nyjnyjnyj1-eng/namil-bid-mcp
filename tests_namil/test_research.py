@@ -166,7 +166,7 @@ def test_mcp_discovery_query_pagination_and_full_row_read(monkeypatch, tmp_path)
     async def scenario():
         async with Client(server) as client:
             tools = await client.list_tools()
-            assert len(tools) == 5
+            assert len(tools) == 6
             result = await client.call_tool("query_construction_page", {"dataset": "notices", "notice_number": "R26BK00000001"})
             data = result.data
             assert data["next_page"] == 2 and data["rows_saved"] == 20
@@ -281,3 +281,97 @@ def test_dynamic_client_registration_survives_restart(production_settings, tmp_p
         assert saved is not None and saved.client_name == "Offline registered client"
 
     asyncio.run(scenario())
+
+
+def bidders(total, page, rows):
+    first = (page - 1) * rows
+    items = [{"bidNtceNo": "R26BK00000001", "bidNtceOrd": "000", "bidClsfcNo": "1", "rbidNo": "000",
+              "opengRank": str(i + 1), "prcbdrBizno": f"{i:010}", "prcbdrNm": f"업체{i}",
+              "bidprcAmt": str(100000000 + i)} for i in range(first, min(total, first + rows))]
+    return {"response": {"header": {"resultCode": "00", "resultMsg": "정상"}, "body": {
+        "items": items, "totalCount": total, "pageNo": page, "numOfRows": rows}}}
+
+
+def run_collect(monkeypatch, tmp_path, respond, **arguments):
+    from fastmcp import Client
+    from namil.server import create_server
+    monkeypatch.delenv("RENDER", raising=False)
+    calls = []
+    def fake_fetch(dataset, params):
+        assert dataset == "bidder_ranks"
+        calls.append(params)
+        body = respond(params["pageNo"], params["numOfRows"])
+        return json.dumps(body, ensure_ascii=False).encode(), body
+    monkeypatch.setattr("namil.server.fetch_page", fake_fetch)
+    server = create_server(mode="local", directory=str(tmp_path))
+    async def scenario():
+        async with Client(server) as client:
+            result = await client.call_tool("collect_opening_competitors", {"notice_number": "R26BK00000001", **arguments})
+            rows = []
+            for snapshot in result.data["snapshots"]:
+                cursor = 0
+                while cursor is not None:
+                    saved = await client.call_tool("read_saved_rows", {"snapshot_id": snapshot["snapshot_id"], "offset": cursor, "limit": 10})
+                    rows.extend(saved.data["rows"])
+                    cursor = saved.data["next_offset"]
+            return result.data, rows
+    data, rows = asyncio.run(scenario())
+    return data, rows, calls
+
+
+def test_collect_opening_competitors_reads_every_page(monkeypatch, tmp_path):
+    data, rows, calls = run_collect(monkeypatch, tmp_path, lambda page, rows: bidders(250, page, rows),
+                                    notice_order="000", rebid_number="000")
+    assert [c["pageNo"] for c in calls] == [1, 2, 3]
+    assert all(c["bidNtceOrd"] == "000" and c["rbidNo"] == "000" for c in calls)
+    assert data["complete"] is True and data["next_page"] is None and data["stopped_reason"] is None
+    assert data["source_total_count"] == 250 and data["rows_saved"] == 250 and data["unique_rows"] == 250
+    assert data["distinct_business_numbers"] == 250 and data["warnings"] == []
+    assert [s["rows_saved"] for s in data["snapshots"]] == [100, 100, 50]
+    assert data["rows_by_order_classification_rebid"] == [
+        {"bidNtceOrd": "000", "bidClsfcNo": "1", "rbidNo": "000", "rows": 250}]
+    assert len(data["preview"]) == 5 and data["preview_is_partial"]
+    assert [r["prcbdrBizno"] for r in rows] == [f"{i:010}" for i in range(250)]
+
+
+def test_collect_opening_competitors_page_limit_and_resume(monkeypatch, tmp_path):
+    first, _, _ = run_collect(monkeypatch, tmp_path, lambda page, rows: bidders(250, page, rows), max_pages=2)
+    assert first["complete"] is False and first["next_page"] == 3 and first["rows_saved"] == 200
+    rest, rows, calls = run_collect(monkeypatch, tmp_path, lambda page, rows: bidders(250, page, rows),
+                                    start_page=first["next_page"])
+    assert [c["pageNo"] for c in calls] == [3]
+    assert rest["next_page"] is None and rest["rows_saved"] == 50
+    assert rest["complete"] is False and rest["start_page"] == 3 and "이어받은" in rest["next_action"]
+
+
+def test_collect_opening_competitors_flags_changed_total_and_duplicates(monkeypatch, tmp_path):
+    # Page 2 reports a larger total and repeats page 1, as when rows shift during pagination.
+    def respond(page, rows):
+        body = bidders(10 if page == 1 else 12, page, rows)
+        if page == 2:
+            body["response"]["body"]["items"] = bidders(12, 1, rows)["response"]["body"]["items"]
+        return body
+    data, _, _ = run_collect(monkeypatch, tmp_path, respond, rows=5)
+    assert data["complete"] is False
+    assert data["duplicate_rows"] == 5
+    assert any("총건수" in w for w in data["warnings"]) and any("중복" in w for w in data["warnings"])
+
+
+def test_collect_opening_competitors_keeps_saved_pages_after_error(monkeypatch, tmp_path):
+    def respond(page, rows):
+        if page == 2:
+            raise DataError("공공데이터 API 연결/시간초과 오류. 잠시 후 다시 조회하세요.")
+        return bidders(250, page, rows)
+    data, rows, _ = run_collect(monkeypatch, tmp_path, respond)
+    assert data["complete"] is False and data["next_page"] == 2
+    assert "2페이지" in data["stopped_reason"] and len(rows) == 100
+
+
+def test_collect_opening_competitors_first_page_error_is_tool_error(monkeypatch, tmp_path):
+    from fastmcp.exceptions import ToolError
+    def respond(page, rows):
+        raise DataError("공공데이터 API 업무 오류(30). 인증키·승인 상태·조회 조건·호출 한도를 확인하세요.")
+    with pytest.raises(ToolError, match="업무 오류"):
+        run_collect(monkeypatch, tmp_path, respond)
+    with pytest.raises(ToolError, match="max_pages"):
+        run_collect(monkeypatch, tmp_path, lambda page, rows: bidders(1, page, rows), max_pages=51)
