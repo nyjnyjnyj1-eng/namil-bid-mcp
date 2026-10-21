@@ -38,6 +38,10 @@ export class Notion {
     return text ? JSON.parse(text) : {};
   }
 
+  callsLeft(): number {
+    return this.budget.remaining();
+  }
+
   queryDataSource(dataSourceId: string, body: Json): Promise<Json> {
     return this.call("POST", `/data_sources/${dataSourceId}/query`, body);
   }

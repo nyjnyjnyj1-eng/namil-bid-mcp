@@ -91,7 +91,17 @@ export class FakeWorld {
       properties: props,
     };
     this.pages.set(id, page);
-    this.children.set(id, (opts.body ?? []).map(toStoredBlock));
+    this.children.set(
+      id,
+      (opts.body ?? []).map((b) => {
+        const stored = toStoredBlock(b);
+        if (b.children) {
+          stored.has_children = true;
+          this.children.set(stored.id, b.children.map(toStoredBlock));
+        }
+        return stored;
+      }),
+    );
     return page;
   }
 
@@ -206,6 +216,17 @@ export class FakeWorld {
 }
 
 export const para = (text: string) => ({ object: "block", type: "paragraph", paragraph: { rich_text: [{ type: "text", text: { content: text } }] } });
+
+export const table = (rows: string[][]) => ({
+  object: "block",
+  type: "table",
+  table: { table_width: rows[0]?.length ?? 1, has_column_header: true },
+  children: rows.map((cells) => ({
+    object: "block",
+    type: "table_row",
+    table_row: { cells: cells.map((c) => [{ type: "text", text: { content: c }, plain_text: c }]) },
+  })),
+});
 
 export const mention = (before: string, pageId: string) => ({
   object: "block",

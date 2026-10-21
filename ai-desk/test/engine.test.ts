@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { tick } from "../src/engine";
 import worker from "../src/index";
-import { FakeWorld, final, makeEnv, mention, para, REC_DS, REQ_DS } from "./fake";
+import { FakeWorld, final, makeEnv, mention, para, REC_DS, REQ_DS, table } from "./fake";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -39,6 +39,18 @@ describe("1단계: 지시서에 적힌 자료만 읽고 처리", () => {
     expect(coralCalls(world)[0].headers.authorization).toBe("Bearer cb_test_key");
     const notionAuth = world.calls.filter((c) => c.url.startsWith("https://api.notion.com")).map((c) => c.headers.authorization);
     expect(new Set(notionAuth)).toEqual(new Set(["Bearer secret_notion_test"]));
+  });
+
+  it("참고 페이지와 지시서 안의 표 내용도 읽는다", async () => {
+    const world = new FakeWorld({ coral: [final("표 요약")] });
+    const ref = world.addPage({ title: "상태 표", body: [para("상태의 뜻"), table([["상태", "뜻"], ["대기", "실행 차례를 기다림"]])] });
+    queued(world, "표 읽기", [para("[할 일] 요약"), table([["조건", "값"], ["지역", "경기"]]), mention("[참고] ", ref.id)]);
+    world.install();
+    await tick(makeEnv());
+    const sent = coralCalls(world)[0].body.messages[1].content as string;
+    expect(sent).toContain("대기 | 실행 차례를 기다림");
+    expect(sent).toContain("지역 | 경기");
+    expect(sent).not.toContain("안쪽 내용은 읽지 않았습니다");
   });
 
   it("기존 블록을 고치거나 지우는 호출을 하지 않는다", async () => {

@@ -150,7 +150,7 @@ export async function runJob(env: Env, notion: Notion, budget: Budget, row: Json
   const rowUrl: string = row.url ?? "";
   try {
     const body = await notion.listChildren(row.id, 2);
-    const instruction = blocksToText(body.blocks, true);
+    const instruction = blocksToText(await expandTables(notion, body.blocks), true);
     if (!instruction.text.trim()) throw new Error("지시서 본문이 비어 있습니다. 요청 행의 본문에 지시서를 써 주세요.");
 
     const notes: string[] = [];
@@ -194,10 +194,26 @@ export async function runJob(env: Env, notion: Notion, budget: Budget, row: Json
   }
 }
 
+// 노션 표는 행이 안쪽 블록이라 따로 읽어야 합니다. 호출 한도를 지키려고 한 페이지에 표 3개까지만 펼칩니다.
+export async function expandTables(notion: Notion, blocks: Json[], maxTables = 3): Promise<Json[]> {
+  const out: Json[] = [];
+  let expanded = 0;
+  for (const b of blocks) {
+    if (b.type === "table" && b.has_children && expanded < maxTables && notion.callsLeft() > LIMITS.writeReserve + 2) {
+      expanded++;
+      const rows = await notion.listChildren(b.id, 1);
+      out.push({ ...b, has_children: false }, ...rows.blocks);
+      continue;
+    }
+    out.push(b);
+  }
+  return out;
+}
+
 async function readPageText(notion: Notion, id: string): Promise<Material> {
   const page = await notion.getPage(id);
   const children = await notion.listChildren(id, 1);
-  const t = blocksToText(children.blocks);
+  const t = blocksToText(await expandTables(notion, children.blocks));
   let text = t.text;
   if (children.truncated) text += "\n(이후 내용은 길어서 생략됨)";
   return { title: pageTitle(page), id, text: text.slice(0, LIMITS.perPageChars) };
