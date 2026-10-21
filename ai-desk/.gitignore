@@ -1,0 +1,8 @@
+node_modules/
+.wrangler/
+.dev.vars
+
+# 저장소 최상위 .gitignore의 *.json 제외 규칙에서 실행기 설정 파일은 뺍니다
+!package.json
+!package-lock.json
+!tsconfig.json

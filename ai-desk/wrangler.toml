@@ -1,0 +1,28 @@
+# AI 작업실 실행기 (Cloudflare Worker)
+# 비밀값 4개(NOTION_TOKEN, CORAL_API_KEY, HIVE_API_KEY, WEB_PASSCODE)는 이 파일에 넣지 말고
+# Cloudflare 대시보드 > 이 Worker > Settings > Variables and Secrets 에서 Secret으로 넣습니다.
+name = "ai-desk"
+main = "src/index.ts"
+compatibility_date = "2026-09-01"
+workers_dev = true
+
+# 1분마다 노션 요청함을 확인합니다. (무료 플랜은 계정당 주기 실행 5개까지)
+[triggers]
+crons = ["* * * * *"]
+
+[observability]
+enabled = true
+
+[vars]
+# 노션 'AI 작업실'의 데이터베이스 (비밀값 아님)
+NOTION_REQUESTS_DS_ID = "f94353fc-fe53-4f8a-a61d-380c1bee9200"
+NOTION_RECORDS_DS_ID = "c813bcaa-10e8-42f5-baaa-b7c68a9ca9c4"
+# Coral Bricks (https://www.coralbricks.ai/docs). 모델 ID는 /api/models 로 확인 후 바꾸세요.
+CORAL_BASE_URL = "https://inference.coralbricks.ai/v1"
+CORAL_MODEL = "deepseek-v4.1-flash-fast"
+# Hive (https://docs.thehive.ai/docs/chat-completions-openai-compatible-llms)
+HIVE_BASE_URL = "https://api.thehive.ai/api/v3"
+HIVE_MODEL = "zai-org/glm-5.3-flash"
+# Hive 검사: Hive 문서의 V3 요청 형식을 확인한 뒤 채웁니다. 본문 틀의 "{{TEXT}}" 자리에 검사할 글이 들어갑니다.
+HIVE_CHECK_URL = ""
+HIVE_CHECK_BODY = ""

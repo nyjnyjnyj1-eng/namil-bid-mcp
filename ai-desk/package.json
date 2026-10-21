@@ -1,0 +1,20 @@
+{
+  "name": "ai-desk",
+  "version": "0.1.0",
+  "private": true,
+  "description": "노션 요청함의 지시서를 Coral Bricks·Hive로 실행하고 결과를 노션에 남기는 Cloudflare Worker",
+  "type": "module",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "check": "npm run typecheck && npm test",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "5.20261006.1",
+    "typescript": "6.0.3",
+    "vite": "8.3.1",
+    "vitest": "5.0.3",
+    "wrangler": "4.149.0"
+  }
+}
