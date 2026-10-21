@@ -40,10 +40,13 @@ Cloudflare Workers 무료 플랜 기준([한도 문서](https://developers.cloud
    - 실행기가 읽어야 하는 다른 자료(예: 입찰 연구 페이지)도 같은 방법으로 연결합니다. **연결한 페이지만** 읽고 검색할 수 있습니다
 2. **Coral Bricks 키**: 콘솔 → API Keys → 새 키. 조직 설정에서 데이터 미보관(zero data retention) 옵션이 있으면 켭니다
 3. **Hive 키**: Hive 계정에서 V3 API 키를 만듭니다
-4. **Cloudflare에 올리기** (기존 입찰 서버와 같은 계정)
-   - Workers & Pages → Create → Import a repository → 이 GitHub 저장소 선택
-   - Root directory: `ai-desk`, 배포 명령은 기본값(`npx wrangler deploy`)
-   - 배포 후 이 Worker → Settings → Variables and Secrets → **Secret**으로 4개 추가
+4. **Cloudflare 배포** (기존 입찰 서버와 같은 계정. 2026-10-21에 연결 완료)
+   - Worker `ai-desk`는 Workers Builds로 이 저장소에 연결되어 있습니다
+     - 대상 브랜치: `claude/sweet-allen-ww9pah` (main에 합치면 트리거의 브랜치를 main으로 바꿉니다)
+     - 대상 폴더: `ai-desk/` 안의 파일이 바뀌어 push될 때만 빌드
+     - 순서: `npm ci && npm run check`(타입 검사·시험) → 통과해야 `npx wrangler deploy`
+   - 빌드 결과는 Cloudflare 대시보드 → Workers & Pages → `ai-desk` → Deployments에서 봅니다
+   - 이 Worker → Settings → Variables and Secrets → **Secret**으로 4개 추가 (직접 해야 하는 일)
      - `NOTION_TOKEN`, `CORAL_API_KEY`, `HIVE_API_KEY`
      - `WEB_PASSCODE`: 입력창 암호. 비밀번호 관리자로 만든 **16자 이상** 무작위 문자열
 5. **점검**
