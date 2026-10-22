@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import { blocksFingerprint, blocksToText, markdownToBlocks, notionId } from "../src/blocks";
 import { parseSse } from "../src/llm";
 import { parseModelOutput } from "../src/protocol";
+import { cleanEnv } from "../src/index";
+import { makeEnv } from "./fake";
 
 describe("모델 응답 읽기", () => {
   it("코드 블록으로 감싼 JSON도 읽는다", () => {
@@ -56,5 +58,13 @@ describe("노션 블록", () => {
     const a = markdownToBlocks("가  나\n다");
     const b = markdownToBlocks("가 나\n\n다");
     expect(blocksFingerprint(a)).toBe(blocksFingerprint(b));
+  });
+});
+
+describe("비밀값 다듬기", () => {
+  it("앞뒤 공백과 줄바꿈을 떼어 낸다", () => {
+    const e = cleanEnv(makeEnv({ HIVE_API_KEY: "  hive_key\n", NOTION_TOKEN: "\tntn_x " }));
+    expect(e.HIVE_API_KEY).toBe("hive_key");
+    expect(e.NOTION_TOKEN).toBe("ntn_x");
   });
 });

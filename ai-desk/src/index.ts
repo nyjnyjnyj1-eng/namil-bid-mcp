@@ -6,7 +6,19 @@ import { coralModels } from "./llm";
 import { Notion, prop } from "./notion";
 import { PAGE_HTML } from "./page";
 
-const VERSION = "0.1.0";
+const VERSION = "0.1.1";
+
+// 붙여넣을 때 딸려 온 앞뒤 공백·줄바꿈 때문에 인증이 실패하지 않도록 비밀값을 다듬습니다.
+export function cleanEnv(env: Env): Env {
+  const t = (v?: string) => (typeof v === "string" ? v.trim() : v);
+  return {
+    ...env,
+    NOTION_TOKEN: t(env.NOTION_TOKEN),
+    CORAL_API_KEY: t(env.CORAL_API_KEY),
+    HIVE_API_KEY: t(env.HIVE_API_KEY),
+    WEB_PASSCODE: t(env.WEB_PASSCODE),
+  };
+}
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data, null, 2), {
@@ -102,7 +114,8 @@ function health(env: Env): Response {
 }
 
 export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
+  async fetch(req: Request, rawEnv: Env): Promise<Response> {
+    const env = cleanEnv(rawEnv);
     const url = new URL(req.url);
     try {
       if (req.method === "GET" && url.pathname === "/") {
@@ -135,7 +148,7 @@ export default {
 
   async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(
-      tick(env)
+      tick(cleanEnv(env))
         .then((r) => console.log("tick:", r))
         .catch((e) => console.error("tick 오류:", e instanceof Error ? e.message : e)),
     );
