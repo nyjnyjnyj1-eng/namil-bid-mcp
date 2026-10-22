@@ -47,6 +47,7 @@ Cloudflare Workers 무료 플랜 기준([한도 문서](https://developers.cloud
      - 순서: `npm ci && npm run check`(타입 검사·시험) → 통과해야 `npx wrangler deploy`
    - 빌드 결과는 Cloudflare 대시보드 → Workers & Pages → `ai-desk` → Deployments에서 봅니다
    - 이 Worker → Settings → Variables and Secrets → **Secret**으로 4개 추가 (직접 해야 하는 일)
+     - 종류를 반드시 **Secret**으로 고릅니다. **Text**로 넣으면 값이 화면에 그대로 보이고, 설정상 Secret 4개가 없으면 배포가 멈춥니다
      - `NOTION_TOKEN`, `CORAL_API_KEY`, `HIVE_API_KEY`
      - `WEB_PASSCODE`: 입력창 암호. 비밀번호 관리자로 만든 **16자 이상** 무작위 문자열
 5. **점검**

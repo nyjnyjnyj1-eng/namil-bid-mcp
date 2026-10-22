@@ -7,6 +7,12 @@ compatibility_date = "2026-09-01"
 workers_dev = true
 # 미리보기 주소는 열지 않습니다(외부에 열린 주소 최소화)
 preview_urls = false
+# 대시보드에서 넣은 변수를 배포가 지우지 않게 합니다
+keep_vars = true
+
+# 비밀값 4개는 반드시 Secret(암호화) 형식이어야 합니다. 하나라도 없으면 배포가 멈춥니다.
+[secrets]
+required = ["NOTION_TOKEN", "CORAL_API_KEY", "HIVE_API_KEY", "WEB_PASSCODE"]
 
 # 1분마다 노션 요청함을 확인합니다. (무료 플랜은 계정당 주기 실행 5개까지)
 [triggers]
