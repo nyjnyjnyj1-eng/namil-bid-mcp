@@ -1,8 +1,8 @@
 {
   "name": "ai-desk",
-  "version": "0.1.0",
+  "version": "2.0.0",
   "private": true,
-  "description": "노션 요청함의 지시서를 Coral Bricks·Hive로 실행하고 결과를 노션에 남기는 Cloudflare Worker",
+  "description": "맡긴 일을 Coral Bricks·Hive·Cloudflare 무료 모델로 처리하고 결과를 노션 AI 작업실에 남기는 Cloudflare Worker",
   "type": "module",
   "scripts": {
     "test": "vitest run",

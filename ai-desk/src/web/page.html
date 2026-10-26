@@ -1,0 +1,585 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI 작업실</title>
+<meta name="theme-color" content="#2f6fde">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="AI 작업실">
+<style>
+  :root {
+    --bg: #f6f6f3; --card: #ffffff; --text: #1d1d1b; --muted: #6a6a66; --line: #e2e2dd; --soft: #f1f1ed;
+    --accent: #2f6fde; --accent-ink: #ffffff; --ok: #1f8a4c; --warn: #b8670b; --bad: #c0392b; --run: #2f6fde;
+    --radius: 14px; --shadow: 0 1px 2px rgba(0,0,0,.04), 0 2px 10px rgba(0,0,0,.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #151515; --card: #1f1f1f; --text: #ececea; --muted: #a2a29d; --line: #333331; --soft: #262624;
+      --accent: #6b9bff; --accent-ink: #0d1424; --ok: #5ccf8c; --warn: #f0a94a; --bad: #ff7d6e; --run: #6b9bff;
+      --shadow: none;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #151515; --card: #1f1f1f; --text: #ececea; --muted: #a2a29d; --line: #333331; --soft: #262624;
+    --accent: #6b9bff; --accent-ink: #0d1424; --ok: #5ccf8c; --warn: #f0a94a; --bad: #ff7d6e; --run: #6b9bff;
+    --shadow: none;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); }
+  body { font: 16px/1.6 system-ui, -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", "Noto Sans KR", sans-serif; -webkit-text-size-adjust: 100%; }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  header.top { position: sticky; top: 0; z-index: 5; padding: calc(10px + env(safe-area-inset-top)) 16px 10px;
+    background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px); }
+  header.top .bar { max-width: 728px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 18px; }
+  .brand img { border-radius: 8px; }
+  main { max-width: 760px; margin: 0 auto; padding: 4px 16px calc(40px + env(safe-area-inset-bottom)); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); padding: 16px; margin: 0 0 14px; }
+  h2 { font-size: 17px; margin: 0; }
+  h3 { font-size: 15px; margin: 0 0 8px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+  button, .btn { font: inherit; border-radius: 10px; border: 1px solid var(--line); background: var(--card); color: var(--text); padding: 9px 14px; cursor: pointer; }
+  button:hover { border-color: color-mix(in srgb, var(--accent) 50%, var(--line)); }
+  button:focus-visible, a:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight: 600; }
+  button:disabled { opacity: .55; cursor: default; }
+  .icon-btn { width: 40px; height: 40px; padding: 0; display: inline-grid; place-items: center; font-size: 19px; border-radius: 12px; color: var(--muted); }
+  .icon-btn svg { width: 20px; height: 20px; }
+  .link-btn { border: 0; background: none; color: var(--accent); padding: 4px 6px; }
+  textarea, input[type=text], input[type=password], input[type=number], select {
+    width: 100%; font: inherit; font-size: 16px; color: var(--text); background: var(--soft); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+  textarea { resize: none; min-height: 112px; max-height: 50vh; line-height: 1.55; }
+  .composer textarea { background: transparent; border: 0; padding: 4px 2px; min-height: 96px; }
+  .composer textarea:focus-visible { outline: none; }
+  .composer { padding-bottom: 12px; }
+  .opts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid var(--line); padding-top: 12px; margin-top: 6px; }
+  .toggle { position: relative; display: inline-flex; }
+  .toggle input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+  .toggle span { display: inline-flex; align-items: center; gap: 6px; padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--soft); font-size: 14px; color: var(--muted); user-select: none; }
+  .toggle span::before { content: ""; width: 14px; height: 14px; border-radius: 4px; border: 1.5px solid currentColor; display: inline-block; }
+  .toggle input:checked + span { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, var(--card)); }
+  .toggle input:checked + span::before { background: currentColor; box-shadow: inset 0 0 0 2px var(--card); }
+  .toggle input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: 2px; }
+  #optWorker { width: auto; padding: 7px 10px; font-size: 14px; border-radius: 999px; }
+  .send { margin-left: auto; padding: 9px 20px; }
+  .hint { margin: 8px 2px 0; font-size: 13px; color: var(--muted); }
+  details.adv { margin-top: 8px; font-size: 14px; }
+  details.adv summary { color: var(--muted); cursor: pointer; padding: 4px 2px; }
+  .grid { display: grid; gap: 10px; grid-template-columns: 1fr; margin-top: 8px; }
+  @media (min-width: 560px) { .grid { grid-template-columns: 1fr 1fr; } .grid label:last-child { grid-column: 1 / -1; } }
+  .grid label { display: grid; gap: 4px; color: var(--muted); font-size: 13px; }
+  .msg { margin: 8px 2px 0; font-size: 14px; min-height: 0; }
+  .msg:empty { display: none; }
+  .error, .msg.bad { color: var(--bad); }
+  .lock-form { display: flex; gap: 8px; margin-top: 10px; }
+  .lock-form button { white-space: nowrap; }
+  .cur-head { display: flex; align-items: center; gap: 10px; margin-bottom: 4px; }
+  .cur-head h2 { overflow-wrap: anywhere; }
+  .badge { flex: none; font-size: 12px; font-weight: 600; padding: 2px 9px; border-radius: 999px; border: 1px solid currentColor; color: var(--muted); white-space: nowrap; }
+  .badge.완료 { color: var(--ok); } .badge.실행.중, .badge.run { color: var(--run); } .badge.실패 { color: var(--bad); } .badge.warn { color: var(--warn); }
+  .progress { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 14px; margin: 6px 0 2px; }
+  .progress.bad { color: var(--bad); }
+  .spinner { width: 14px; height: 14px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--run) 30%, transparent); border-top-color: var(--run); animation: spin .9s linear infinite; flex: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+  .meta { color: var(--muted); font-size: 13px; margin: 10px 0 0; overflow-wrap: anywhere; }
+  .meta:empty { display: none; }
+  .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+  .actions a { display: inline-flex; align-items: center; padding: 9px 14px; border-radius: 10px; border: 1px solid var(--line); color: var(--accent); text-decoration: none; }
+  .list-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+  ul.recent { list-style: none; margin: 0; padding: 0; }
+  ul.recent li + li { border-top: 1px solid var(--line); }
+  .item { width: 100%; text-align: left; border: 0; border-radius: 10px; background: none; padding: 10px 6px; display: grid; gap: 2px; }
+  .item:hover { background: var(--soft); }
+  .item.active { background: color-mix(in srgb, var(--accent) 8%, var(--card)); }
+  .item-top { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .item-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .item-sub { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  /* 결과(마크다운) */
+  .md { margin-top: 10px; overflow-wrap: anywhere; }
+  .md:empty { display: none; }
+  .md > :first-child { margin-top: 0; }
+  .md h1, .md h2, .md h3, .md h4 { font-size: 16px; margin: 18px 0 6px; }
+  .md h1, .md h2 { font-size: 17px; }
+  .md p { margin: 8px 0; }
+  .md ul, .md ol { margin: 6px 0; padding-left: 22px; }
+  .md li { margin: 2px 0; }
+  .md blockquote { margin: 8px 0; padding: 4px 12px; border-left: 3px solid var(--line); color: var(--muted); }
+  .md code { font: 13.5px ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; background: var(--soft); padding: 1px 5px; border-radius: 5px; }
+  .md pre { background: var(--soft); padding: 10px 12px; border-radius: 10px; overflow-x: auto; }
+  .md pre code { background: none; padding: 0; }
+  .md hr { border: 0; border-top: 1px solid var(--line); margin: 14px 0; }
+  .md .tbl { overflow-x: auto; margin: 8px 0; }
+  .md table { border-collapse: collapse; font-size: 14px; min-width: 100%; }
+  .md th, .md td { border: 1px solid var(--line); padding: 6px 8px; text-align: left; vertical-align: top; }
+  .md th { background: var(--soft); font-weight: 600; }
+  .md a { color: var(--accent); }
+  /* 설정 */
+  dialog { border: 0; padding: 0; background: transparent; color: var(--text); width: min(560px, 100vw); max-width: 100vw; margin: auto auto 0; }
+  @media (min-width: 600px) { dialog { margin: auto; } }
+  dialog::backdrop { background: rgba(0,0,0,.35); }
+  .sheet { background: var(--card); border-radius: 18px 18px 0 0; max-height: 88vh; overflow-y: auto; padding: 0 16px calc(18px + env(safe-area-inset-bottom)); }
+  @media (min-width: 600px) { .sheet { border-radius: 18px; } }
+  .sheet header { position: sticky; top: 0; background: var(--card); display: flex; align-items: center; justify-content: space-between; padding: 14px 0 10px; }
+  .sheet section { border-top: 1px solid var(--line); padding: 14px 0; }
+  .sheet textarea { min-height: 150px; font-size: 13.5px; }
+  .sheet button { margin-top: 8px; }
+  ul.health { list-style: none; margin: 0 0 4px; padding: 0; display: grid; gap: 6px; }
+  ul.health li { display: grid; grid-template-columns: 22px 92px 1fr; gap: 6px; align-items: baseline; font-size: 14px; }
+  .dot { font-weight: 700; }
+  .dot.ok { color: var(--ok); } .dot.no { color: var(--bad); } .dot.unk { color: var(--muted); }
+  .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom)); transform: translateX(-50%); background: var(--text); color: var(--bg); padding: 9px 16px; border-radius: 999px; font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; z-index: 20; }
+  .toast.show { opacity: .95; }
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="bar">
+    <div class="brand"><img src="/icon.svg" alt="" width="28" height="28"><span>AI 작업실</span></div>
+    <button id="btnSettings" class="icon-btn" type="button" aria-label="설정과 연결 점검" title="설정">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg>
+    </button>
+  </div>
+</header>
+
+<main>
+  <section id="lock" class="card" hidden>
+    <h2>입력창 암호</h2>
+    <p class="muted small">Cloudflare에 넣어 둔 <b>WEB_PASSCODE</b> 값입니다. 처음 한 번만 넣으면 이 기기에 저장됩니다.</p>
+    <form id="lockForm" class="lock-form">
+      <label for="passInput" class="sr-only">입력창 암호</label>
+      <input id="passInput" type="password" autocomplete="current-password" placeholder="암호">
+      <button class="primary" type="submit">확인</button>
+    </form>
+    <p id="lockMsg" class="msg bad" role="alert"></p>
+  </section>
+
+  <section class="card composer">
+    <label for="text" class="sr-only">맡길 일</label>
+    <textarea id="text" rows="4" placeholder="무엇을 맡길까요?&#10;노션 페이지 링크를 붙이면 그 내용을 읽고 답합니다."></textarea>
+    <div class="opts">
+      <label class="toggle" title="실행기와 연결된 노션 페이지를 스스로 찾아 읽습니다"><input type="checkbox" id="optSearch"><span>노션에서 찾기</span></label>
+      <label class="toggle" title="결과를 노션 '작업 기록'에 새 페이지로 남깁니다"><input type="checkbox" id="optSave"><span>노션에 저장</span></label>
+      <select id="optWorker" aria-label="답할 모델">
+        <option value="auto">자동</option>
+        <option value="free">무료 모델</option>
+        <option value="coral">Coral</option>
+        <option value="hive">Hive</option>
+        <option value="hive-check" hidden>Hive 검사</option>
+      </select>
+      <button id="btnSend" class="primary send" type="button">보내기</button>
+    </div>
+    <p id="workerHint" class="hint"></p>
+    <details class="adv">
+      <summary>더 보기</summary>
+      <div class="grid">
+        <label>제목 <input id="optTitle" type="text" placeholder="비우면 첫 줄"></label>
+        <label>노션에서 찾기 최대 횟수 <input id="optRounds" type="number" min="1" max="5" value="3" inputmode="numeric"></label>
+        <label>모델 ID (자동이 아닐 때만) <input id="optModel" type="text" placeholder="비우면 기본 모델" autocapitalize="off" spellcheck="false"></label>
+      </div>
+    </details>
+    <p id="sendMsg" class="msg" role="status"></p>
+  </section>
+
+  <section id="current" class="card" hidden aria-live="polite">
+    <div class="cur-head">
+      <span id="curBadge" class="badge"></span>
+      <h2 id="curTitle"></h2>
+    </div>
+    <p id="curProgress" class="progress"><span id="curSpin" class="spinner" aria-hidden="true"></span><span id="curProgressText"></span></p>
+    <article id="curResult" class="md"></article>
+    <p id="curMeta" class="meta"></p>
+    <div class="actions">
+      <button id="btnCopy" type="button">복사</button>
+      <button id="btnContinue" type="button">이어서 묻기</button>
+      <a id="lnkRecord" target="_blank" rel="noopener" hidden>노션 기록 열기</a>
+      <a id="lnkRow" target="_blank" rel="noopener" hidden>요청함 행 열기</a>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="list-head"><h2>최근 작업</h2><button id="btnRefresh" class="link-btn" type="button">새로고침</button></div>
+    <ul id="recent" class="recent"></ul>
+    <p id="recentEmpty" class="muted small" hidden>아직 작업이 없습니다. 위에 맡길 일을 적고 보내 보세요.</p>
+  </section>
+</main>
+
+<dialog id="settings" aria-labelledby="settingsTitle">
+  <form method="dialog" class="sheet">
+    <header><h2 id="settingsTitle">설정</h2><button class="icon-btn" value="close" aria-label="닫기">✕</button></header>
+    <section>
+      <h3>모델 연결 상태</h3>
+      <ul id="healthList" class="health"></ul>
+      <button type="button" id="btnCheck">지금 점검하기</button>
+      <p class="muted small">점검은 모델마다 아주 짧게 한 번씩 물어봅니다. 자동 모드는 쓸 수 없는 모델을 건너뛰고 다음 모델로 답합니다.</p>
+      <div id="notionCheck" class="small"></div>
+    </section>
+    <section>
+      <h3>Claude·ChatGPT에서 맡길 때</h3>
+      <p class="muted small">아래 안내문을 Claude 프로젝트 지침이나 ChatGPT 맞춤 지침에 붙여 두면 "AI 작업실에 맡겨"라고만 해도 지시서를 만들어 줍니다.</p>
+      <label for="guideText" class="sr-only">안내문</label>
+      <textarea id="guideText" readonly></textarea>
+      <button type="button" id="btnCopyGuide">안내문 복사</button>
+    </section>
+    <section>
+      <h3>이 기기</h3>
+      <p class="muted small">입력창 암호는 이 기기 브라우저에만 저장됩니다. 휴대폰에서는 브라우저 메뉴의 <b>홈 화면에 추가</b>로 앱처럼 쓸 수 있습니다.</p>
+      <button type="button" id="btnForget">암호 지우기</button>
+      <p><a id="lnkNotionHome" target="_blank" rel="noopener" hidden>노션 'AI 작업실' 열기</a></p>
+      <p class="muted small" id="versionLine"></p>
+    </section>
+  </form>
+</dialog>
+
+<div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+(() => {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+    del(k) { try { localStorage.removeItem(k); } catch (e) {} },
+  };
+  const LABEL = { coral: 'Coral', hive: 'Hive', free: '무료 모델' };
+  let pass = store.get('desk-pass', '');
+  let currentId = null, currentJob = null, pollTimer = null;
+  let info = { health: {}, features: {}, notionHome: null, autoOrder: ['coral', 'hive', 'free'], version: '' };
+  const baseTitle = document.title;
+
+  // ---------- 공통 ----------
+  function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+  function toast(t) { const x = $('toast'); x.textContent = t; x.classList.add('show'); clearTimeout(toast.h); toast.h = setTimeout(() => x.classList.remove('show'), 1800); }
+  function msg(t, bad) { const m = $('sendMsg'); m.textContent = t || ''; m.className = 'msg' + (bad ? ' bad' : ''); }
+  function clip(s, n) { return s.length > n ? s.slice(0, n) + '…' : s; }
+  function ago(ts) {
+    const d = (Date.now() - ts) / 1000;
+    if (d < 60) return '방금';
+    if (d < 3600) return Math.floor(d / 60) + '분 전';
+    if (d < 86400) return Math.floor(d / 3600) + '시간 전';
+    const t = new Date(ts);
+    return (t.getMonth() + 1) + '/' + t.getDate() + ' ' + String(t.getHours()).padStart(2, '0') + ':' + String(t.getMinutes()).padStart(2, '0');
+  }
+  function badgeClass(status) {
+    if (status === '완료') return 'badge 완료';
+    if (status === '실행 중' || status === '대기') return 'badge run';
+    if (status === '실패') return 'badge 실패';
+    return 'badge warn';
+  }
+
+  async function api(path, opts) {
+    opts = opts || {};
+    const headers = Object.assign({ 'Content-Type': 'application/json', 'x-desk-passcode': pass }, opts.headers || {});
+    let res;
+    try { res = await fetch(path, Object.assign({}, opts, { headers })); }
+    catch (e) { throw new Error('연결이 끊겼습니다. 인터넷 연결을 확인해 주세요.'); }
+    let data = {};
+    try { data = await res.json(); } catch (e) {}
+    if (res.status === 401) { showLock(data.error); const err = new Error('locked'); err.locked = true; throw err; }
+    if (!res.ok || data.ok === false) throw new Error(data.error || ('오류 ' + res.status));
+    return data;
+  }
+
+  // ---------- 암호 ----------
+  function showLock(text) {
+    $('lock').hidden = false;
+    $('lockMsg').textContent = pass ? (text || '암호가 맞지 않습니다.') : '';
+    setTimeout(() => $('passInput').focus(), 0);
+  }
+  $('lockForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const v = $('passInput').value.trim();
+    if (!v) return;
+    pass = v;
+    try { await loadRecent(); store.set('desk-pass', v); $('lock').hidden = true; $('passInput').value = ''; toast('확인했습니다'); }
+    catch (err) { if (!err.locked) $('lockMsg').textContent = err.message; }
+  });
+
+  // ---------- 입력 ----------
+  const ta = $('text');
+  function autoGrow() { ta.style.height = 'auto'; ta.style.height = Math.min(ta.scrollHeight + 2, window.innerHeight * 0.5) + 'px'; }
+  ta.addEventListener('input', () => { autoGrow(); store.set('desk-draft', ta.value); });
+  ta.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); send(); } });
+  ta.value = store.get('desk-draft', '');
+  for (const id of ['optSearch', 'optSave']) {
+    $(id).checked = store.get('desk-' + id, '0') === '1';
+    $(id).addEventListener('change', () => { store.set('desk-' + id, $(id).checked ? '1' : '0'); updateHint(); });
+  }
+  $('optWorker').value = store.get('desk-worker', 'auto');
+  if (!$('optWorker').value) $('optWorker').value = 'auto';
+  $('optWorker').addEventListener('change', () => { store.set('desk-worker', $('optWorker').value); updateHint(); });
+
+  function usable(p) { const h = info.health[p]; return !h || h.ok || (Date.now() - h.at > 30 * 60 * 1000); }
+  function updateHint() {
+    const w = $('optWorker').value;
+    const parts = [];
+    if (w === 'auto') {
+      const order = info.autoOrder || ['coral', 'hive', 'free'];
+      const pick = order.find(usable) || order[order.length - 1];
+      const blocked = order.filter((p) => !usable(p)).map((p) => LABEL[p]);
+      parts.push('자동: 지금은 ' + LABEL[pick] + '로 답합니다' + (blocked.length ? ' (' + blocked.join('·') + ' 사용 불가)' : ''));
+    } else if (LABEL[w] && info.health[w] && !info.health[w].ok) {
+      parts.push(LABEL[w] + ': ' + (info.health[w].reason || '사용 불가') + ' — 자동으로 바꾸면 바로 답을 받을 수 있습니다');
+    }
+    if ($('optSave').checked) parts.push('결과는 노션 작업 기록에 남습니다');
+    else parts.push('노션에 남기지 않습니다');
+    $('workerHint').textContent = parts.join(' · ');
+    for (const o of $('optWorker').options) {
+      if (!LABEL[o.value]) continue;
+      const h = info.health[o.value];
+      o.textContent = LABEL[o.value] + (h && !h.ok && !usable(o.value) ? ' (사용 불가)' : '');
+    }
+  }
+
+  async function send() {
+    const text = ta.value.trim();
+    if (!text) { msg('맡길 일을 입력해 주세요.', true); ta.focus(); return; }
+    if (!pass) { showLock(); return; }
+    $('btnSend').disabled = true; msg('보내는 중…');
+    try {
+      const data = await api('/api/jobs', { method: 'POST', body: JSON.stringify({
+        text, title: $('optTitle').value, worker: $('optWorker').value,
+        notionSearch: $('optSearch').checked, save: $('optSave').checked,
+        rounds: Number($('optRounds').value), model: $('optModel').value,
+      }) });
+      ta.value = ''; $('optTitle').value = ''; store.del('desk-draft'); autoGrow(); msg('');
+      showJob(data.job); follow(data.job.id); loadRecent().catch(() => {});
+      $('current').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) { if (!e.locked) msg(e.message, true); }
+    finally { $('btnSend').disabled = false; }
+  }
+  $('btnSend').addEventListener('click', send);
+
+  // ---------- 결과 표시 ----------
+  function esc(s) { return s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+  function inline(s) {
+    return esc(s)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
+      .replace(/(^|[\s(])(https?:\/\/[^\s<)]+)/g, '$1<a href="$2" target="_blank" rel="noopener">$2</a>');
+  }
+  function cells(line) { return line.trim().replace(/^\|/, '').replace(/\|$/, '').split('|').map((c) => c.trim()); }
+  function renderMd(src) {
+    const lines = String(src || '').replace(/\r\n/g, '\n').split('\n');
+    const out = [];
+    let i = 0, para = [];
+    const flush = () => { if (para.length) { out.push('<p>' + para.map(inline).join('<br>') + '</p>'); para = []; } };
+    while (i < lines.length) {
+      const line = lines[i];
+      const t = line.trim();
+      if (/^```/.test(t)) {
+        flush(); const body = []; i++;
+        while (i < lines.length && !/^```/.test(lines[i].trim())) body.push(lines[i++]);
+        i++; out.push('<pre><code>' + esc(body.join('\n')) + '</code></pre>'); continue;
+      }
+      if (/^\|.*\|$/.test(t) && i + 1 < lines.length && /^\|?\s*:?-{2,}/.test(lines[i + 1].trim())) {
+        flush(); const head = cells(t); i += 2; const rows = [];
+        while (i < lines.length && /^\|.*\|$/.test(lines[i].trim())) rows.push(cells(lines[i++]));
+        out.push('<div class="tbl"><table><thead><tr>' + head.map((c) => '<th>' + inline(c) + '</th>').join('') + '</tr></thead><tbody>' +
+          rows.map((r) => '<tr>' + head.map((_, k) => '<td>' + inline(r[k] || '') + '</td>').join('') + '</tr>').join('') + '</tbody></table></div>');
+        continue;
+      }
+      let m;
+      if (!t) { flush(); i++; continue; }
+      if ((m = t.match(/^(#{1,4})\s+(.*)$/))) { flush(); const n = Math.min(4, m[1].length + 1); out.push('<h' + n + '>' + inline(m[2]) + '</h' + n + '>'); i++; continue; }
+      if (/^(-{3,}|\*{3,}|_{3,})$/.test(t)) { flush(); out.push('<hr>'); i++; continue; }
+      if (/^>\s?/.test(t)) { flush(); const q = []; while (i < lines.length && /^>\s?/.test(lines[i].trim())) q.push(lines[i++].trim().replace(/^>\s?/, '')); out.push('<blockquote>' + q.map(inline).join('<br>') + '</blockquote>'); continue; }
+      if (/^[-*+]\s+/.test(t) || /^\d+[.)]\s+/.test(t)) {
+        flush(); const ordered = /^\d/.test(t); const items = [];
+        while (i < lines.length) {
+          const x = lines[i].trim();
+          const mm = ordered ? x.match(/^\d+[.)]\s+(.*)$/) : x.match(/^[-*+]\s+(.*)$/);
+          if (!mm) break;
+          items.push(mm[1].replace(/^\[( |x)\]\s+/i, (s, c) => (c.toLowerCase() === 'x' ? '☑ ' : '☐ '))); i++;
+        }
+        const tag = ordered ? 'ol' : 'ul';
+        out.push('<' + tag + '>' + items.map((x) => '<li>' + inline(x) + '</li>').join('') + '</' + tag + '>'); continue;
+      }
+      para.push(t); i++;
+    }
+    flush();
+    return out.join('');
+  }
+
+  function metaText(job) {
+    const parts = [];
+    if (job.provider) parts.push('처리: ' + job.provider);
+    if (job.skipped && job.skipped.length) parts.push('건너뜀: ' + job.skipped.join(' / '));
+    if (job.notionSearch) parts.push('노션에서 찾기 사용');
+    if (job.usage && (job.usage.input || job.usage.output)) parts.push('토큰 ' + job.usage.input + '→' + job.usage.output);
+    parts.push(job.source === 'notion' ? '노션 요청함에서 맡김' : '웹에서 맡김');
+    parts.push(ago(job.createdAt));
+    return parts.join(' · ');
+  }
+
+  function showJob(job) {
+    currentJob = job; currentId = job.id;
+    $('current').hidden = false;
+    const running = job.status === '실행 중' || job.status === '대기';
+    $('curBadge').className = badgeClass(job.status); $('curBadge').textContent = job.status;
+    $('curTitle').textContent = job.title;
+    $('curSpin').hidden = !running;
+    $('curProgress').className = 'progress' + (job.status === '실패' ? ' bad' : '');
+    $('curProgressText').textContent = job.status === '실패' ? ('실패: ' + (job.error || '알 수 없는 오류'))
+      : running ? (job.progress || '처리 중') : (job.status === '완료' ? '' : (job.progress || ''));
+    $('curProgress').hidden = !running && job.status === '완료';
+    $('curResult').innerHTML = job.resultMarkdown ? renderMd(job.resultMarkdown) : '';
+    $('curMeta').textContent = metaText(job);
+    $('btnCopy').disabled = !job.resultMarkdown;
+    $('btnContinue').disabled = !job.resultMarkdown;
+    const rec = $('lnkRecord'); rec.hidden = !job.recordUrl; if (job.recordUrl) rec.href = job.recordUrl;
+    const row = $('lnkRow'); row.hidden = !job.rowUrl; if (job.rowUrl) row.href = job.rowUrl;
+    document.title = running ? '처리 중 · ' + baseTitle : (document.hidden && job.status === '완료' ? '✓ 완료 · ' + baseTitle : baseTitle);
+    for (const b of document.querySelectorAll('.item')) b.classList.toggle('active', b.dataset.id === job.id);
+  }
+
+  function stopFollow() { clearTimeout(pollTimer); pollTimer = null; }
+  function follow(id) {
+    stopFollow(); currentId = id;
+    try { history.replaceState(null, '', '#job=' + encodeURIComponent(id)); } catch (e) {}
+    let failures = 0;
+    const tick = async () => {
+      if (currentId !== id) return;
+      try {
+        const d = await api('/api/jobs/' + encodeURIComponent(id));
+        if (currentId !== id) return;
+        failures = 0;
+        showJob(d.job);
+        if (d.job.status === '실행 중' || d.job.status === '대기') pollTimer = setTimeout(tick, document.hidden ? 6000 : 1500);
+        else loadRecent().catch(() => {});
+      } catch (e) {
+        if (e.locked) return;
+        if (/찾지 못했습니다/.test(e.message)) { $('current').hidden = true; return; }
+        // 연결이 계속 안 되면 5초, 10초, 20초… 최대 1분까지 간격을 늘려 다시 묻습니다.
+        pollTimer = setTimeout(tick, Math.min(60000, 5000 * 2 ** failures++));
+      }
+    };
+    tick();
+  }
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) {
+      if (currentJob && (currentJob.status === '실행 중' || currentJob.status === '대기')) follow(currentJob.id);
+      if (currentJob) document.title = (currentJob.status === '실행 중' ? '처리 중 · ' : '') + baseTitle;
+      loadRecent().catch(() => {});
+    }
+  });
+
+  $('btnCopy').addEventListener('click', async () => {
+    if (!currentJob || !currentJob.resultMarkdown) return;
+    try { await navigator.clipboard.writeText(currentJob.resultMarkdown); toast('결과를 복사했습니다'); }
+    catch (e) { const t = document.createElement('textarea'); t.value = currentJob.resultMarkdown; document.body.append(t); t.select(); document.execCommand('copy'); t.remove(); toast('결과를 복사했습니다'); }
+  });
+  $('btnContinue').addEventListener('click', () => {
+    if (!currentJob) return;
+    const j = currentJob;
+    ta.value = j.recordUrl
+      ? '[이어서] 아래 기록을 이어서 진행해 줘.\n[참고] ' + j.recordUrl + '\n[할 일] '
+      : '[이전 결과]\n' + clip(j.resultMarkdown || '', 3000) + '\n\n[이어서 할 일] ';
+    store.set('desk-draft', ta.value); autoGrow();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length);
+  });
+
+  // ---------- 최근 목록 ----------
+  function renderRecent(jobs) {
+    const ul = $('recent'); ul.replaceChildren();
+    $('recentEmpty').hidden = jobs.length > 0;
+    for (const j of jobs.slice(0, 40)) {
+      const li = el('li');
+      const b = el('button', 'item'); b.type = 'button'; b.dataset.id = j.id;
+      if (j.id === currentId) b.classList.add('active');
+      const top = el('div', 'item-top');
+      top.append(el('span', badgeClass(j.status), j.status), el('span', 'item-title', j.title));
+      const sub = [j.source === 'notion' ? '노션 요청함' : '웹', ago(j.createdAt)];
+      if (j.status === '실행 중') sub.push(j.progress); else if (j.provider) sub.push(j.provider);
+      b.append(top, el('div', 'item-sub', sub.filter(Boolean).join(' · ')));
+      b.addEventListener('click', () => { openJob(j.id); $('current').scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      li.append(b); ul.append(li);
+    }
+  }
+  async function loadRecent() {
+    const d = await api('/api/jobs');
+    info = { health: d.health || {}, features: d.features || {}, notionHome: d.notionHome, autoOrder: d.autoOrder || info.autoOrder, version: d.version };
+    renderRecent(d.jobs || []);
+    $('optWorker').querySelector('option[value="hive-check"]').hidden = !info.features.hiveCheck;
+    if (!info.features.hiveCheck && $('optWorker').value === 'hive-check') $('optWorker').value = 'auto';
+    updateHint();
+    return d;
+  }
+  async function openJob(id) {
+    try { const d = await api('/api/jobs/' + encodeURIComponent(id)); showJob(d.job); if (d.job.status === '실행 중' || d.job.status === '대기') follow(id); else { stopFollow(); try { history.replaceState(null, '', '#job=' + encodeURIComponent(id)); } catch (e) {} } }
+    catch (e) { if (!e.locked) toast(e.message); }
+  }
+  $('btnRefresh').addEventListener('click', () => loadRecent().then(() => toast('새로 불러왔습니다')).catch((e) => { if (!e.locked) toast(e.message); }));
+
+  // ---------- 설정 ----------
+  function renderHealth(h) {
+    const ul = $('healthList'); ul.replaceChildren();
+    for (const p of ['coral', 'hive', 'free']) {
+      const x = h[p]; const li = el('li');
+      const dot = el('span', 'dot ' + (!x ? 'unk' : x.ok ? 'ok' : 'no'), !x ? '·' : x.ok ? '✓' : '✕');
+      li.append(dot, el('b', null, LABEL[p]), el('span', 'muted', !x ? '아직 확인 전' : (x.ok ? '사용 가능' : (x.reason || '사용 불가')) + ' · ' + ago(x.at)));
+      ul.append(li);
+    }
+  }
+  function guideText() {
+    const url = location.origin;
+    return [
+      '내가 "AI 작업실에 맡겨" 또는 "지시서로 만들어"라고 하면:',
+      '1. 아래 양식으로 지시서를 쓴다: [목적] [참고] [할 일] [범위] [결과 형식]',
+      '   - 대화에서 이미 확인한 사실과 노션 링크는 [참고]·[할 일]에 넣어 같은 설명을 반복하지 않게 한다.',
+      "2. 노션에 쓸 수 있으면 노션 'AI 작업실 > 요청함'에 새 행을 만든다: 제목, 본문=지시서, 상태=대기, 요청자=자신의 이름.",
+      "   노션을 더 찾아봐야 하면 '노션에서 찾기', 결과를 남겨야 하면 '노션 기록'을 체크한다. 다른 페이지는 수정하지 않는다.",
+      '3. 노션에 쓸 수 없으면 지시서를 코드 블록으로 보여 주고 "AI 작업실(' + url + ')에 붙여넣으세요"라고 알려 준다.',
+      "4. 이어서 할 때는 노션 'AI 작업실 > 작업 기록'의 최근 결과와 '다음 할 일'을 먼저 읽는다.",
+    ].join('\n');
+  }
+  $('btnSettings').addEventListener('click', () => {
+    renderHealth(info.health || {});
+    $('guideText').value = guideText();
+    const home = $('lnkNotionHome'); home.hidden = !info.notionHome; if (info.notionHome) home.href = info.notionHome;
+    $('versionLine').textContent = info.version ? '버전 ' + info.version : '';
+    const dlg = $('settings');
+    if (typeof dlg.showModal === 'function') dlg.showModal(); else dlg.setAttribute('open', '');
+  });
+  $('btnCheck').addEventListener('click', async () => {
+    const b = $('btnCheck'); b.disabled = true; b.textContent = '점검 중…';
+    try {
+      const d = await api('/api/check');
+      info.health = { coral: d.coral, hive: d.hive, free: d.free };
+      renderHealth(info.health); updateHint();
+      const n = $('notionCheck'); n.replaceChildren();
+      n.append(el('p', null, d.notion.ok ? '노션: 연결됨 — 실행기가 읽을 수 있는 페이지 예시' : '노션: ' + (d.notion.reason || '연결 안 됨')));
+      if (d.notion.ok) {
+        const ul = el('ul'); for (const t of d.notion.pages || []) ul.append(el('li', null, t));
+        if (!(d.notion.pages || []).length) ul.append(el('li', 'muted', "'AI 작업실' 말고는 연결된 페이지가 없습니다. 읽게 할 노션 페이지에서 ••• → 연결 → 실행기 연결을 추가하세요."));
+        n.append(ul);
+      }
+    } catch (e) { if (!e.locked) toast(e.message); }
+    finally { b.disabled = false; b.textContent = '지금 점검하기'; }
+  });
+  $('btnCopyGuide').addEventListener('click', async () => {
+    try { await navigator.clipboard.writeText($('guideText').value); toast('안내문을 복사했습니다'); }
+    catch (e) { $('guideText').select(); document.execCommand('copy'); toast('안내문을 복사했습니다'); }
+  });
+  $('btnForget').addEventListener('click', () => { store.del('desk-pass'); pass = ''; $('settings').close(); showLock(); toast('이 기기에서 암호를 지웠습니다'); });
+
+  // ---------- 시작 ----------
+  autoGrow(); updateHint();
+  if (!pass) showLock();
+  else loadRecent().catch((e) => { if (!e.locked) msg(e.message, true); });
+  const m = location.hash.match(/job=([^&]+)/);
+  if (m && pass) openJob(decodeURIComponent(m[1]));
+  setInterval(() => { if (!document.hidden && pass) loadRecent().catch(() => {}); }, 60000);
+})();
+</script>
+</body>
+</html>

@@ -1,5 +1,7 @@
-// 맡겨진 모델과 주고받는 약속. 모델은 JSON 하나로 "최종 답" 또는 "자료 더 요청"을 보냅니다.
-// 모델 자체의 도구 호출 기능에 기대지 않아서 Coral·Hive 어느 모델에서도 같은 방식으로 동작합니다.
+// 맡겨진 모델과 주고받는 약속.
+// - 간단 모드: 빠른 질문. 모델이 마크다운으로 바로 답합니다.
+// - 정리 모드: 노션에 남기거나 노션에서 찾아볼 때. 모델은 JSON 하나로 "최종 답" 또는 "자료 더 요청"을 보냅니다.
+//   모델 자체의 도구 호출 기능에 기대지 않아서 Coral·Hive·무료 모델 어디서나 같은 방식으로 동작합니다.
 
 export interface FinalAnswer {
   result: string;
@@ -15,18 +17,22 @@ export type ModelAction =
   | { action: "read"; pageId: string }
   | { action: "invalid"; raw: string };
 
-const BASE_RULES = `너는 사용자가 맡긴 작업 지시서를 처리하는 조사·정리 담당이다.
+export const SIMPLE_PROMPT = `너는 사용자의 일을 돕는 업무 도우미다. 한국어로 답한다.
+- 함께 받은 자료가 있으면 그 자료를 우선 근거로 삼는다. 자료에 없는 사실은 지어내지 말고, 모르면 모른다고 쓴다.
+- 결론부터 간결하게 쓴다. 필요할 때만 표나 목록을 쓰고, 마크다운 형식으로 쓴다.`;
+
+const STRUCTURED_RULES = `너는 사용자가 맡긴 작업 지시서를 처리하는 조사·정리 담당이다. 한국어로 쓴다.
 규칙:
 1. 지시서와 함께 받은 자료만 근거로 삼는다. 자료에 없는 사실은 지어내지 말고 "확인 안 됨"이라고 쓴다.
 2. 판단에는 근거를 붙인다(어느 자료의 어느 내용인지).
 3. 지시서의 범위와 금지 사항을 지킨다.
-4. 응답은 JSON 객체 하나만 출력한다. 앞뒤에 다른 글을 쓰지 않는다.
+4. 응답은 JSON 객체 하나만 출력한다. 앞뒤에 다른 글이나 코드 블록 표시를 쓰지 않는다.
 최종 답 형식:
 {"action":"final","결과":"마크다운으로 쓴 본문","근거":["..."],"한계":["..."],"다음 할 일":["..."],"사용한 자료":["자료 제목"]}`;
 
-export function systemPrompt(selfResearch: boolean, rounds: number): string {
-  if (!selfResearch) return BASE_RULES;
-  return `${BASE_RULES}
+export function structuredPrompt(research: boolean, rounds: number): string {
+  if (!research) return STRUCTURED_RULES;
+  return `${STRUCTURED_RULES}
 
 자료가 부족하면 최종 답 대신 아래 중 하나를 출력해 노션에서 자료를 더 받을 수 있다. 쓸 수 있는 횟수는 모두 ${rounds}회다.
 {"action":"search","query":"검색어"}  → 노션에서 맞는 페이지 목록(제목과 ID)을 받는다.

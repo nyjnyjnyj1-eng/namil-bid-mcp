@@ -1,6 +1,6 @@
 # AI 작업실 실행기 (Cloudflare Worker)
-# 비밀값 4개(NOTION_TOKEN, CORAL_API_KEY, HIVE_API_KEY, WEB_PASSCODE)는 이 파일에 넣지 말고
-# Cloudflare 대시보드 > 이 Worker > Settings > Variables and Secrets 에서 Secret으로 넣습니다.
+# 비밀값(NOTION_TOKEN, WEB_PASSCODE, CORAL_API_KEY, HIVE_API_KEY)은 이 파일에 넣지 말고
+# Cloudflare 대시보드 > ai-desk > Settings > Variables and Secrets 에서 종류를 'Secret'으로 넣습니다.
 name = "ai-desk"
 main = "src/index.ts"
 compatibility_date = "2026-09-01"
@@ -10,27 +10,49 @@ preview_urls = false
 # 대시보드에서 넣은 변수를 배포가 지우지 않게 합니다
 keep_vars = true
 
-# 비밀값 4개는 반드시 Secret(암호화) 형식이어야 합니다. 하나라도 없으면 배포가 멈춥니다.
+# 노션 토큰과 입력창 암호는 Secret으로 꼭 있어야 합니다(없으면 배포가 멈춤). Coral·Hive 키는 없어도 됩니다.
 [secrets]
-required = ["NOTION_TOKEN", "CORAL_API_KEY", "HIVE_API_KEY", "WEB_PASSCODE"]
+required = ["NOTION_TOKEN", "WEB_PASSCODE"]
 
-# 1분마다 노션 요청함을 확인합니다. (무료 플랜은 계정당 주기 실행 5개까지)
+# 1분마다 노션 요청함을 확인하고 멈춘 작업을 다시 깨웁니다. (무료 플랜은 계정당 주기 실행 5개까지)
 [triggers]
 crons = ["* * * * *"]
 
 [observability]
 enabled = true
 
+# 무료 모델: Cloudflare Workers AI (키 없이 동작, 하루 10,000 neurons 무료, 넘으면 과금 없이 멈춤)
+[ai]
+binding = "AI"
+
+# 작업 실행기(작업 하나마다 하나)와 최근 작업 목록(하나)
+[[durable_objects.bindings]]
+name = "RUNNER"
+class_name = "JobRunner"
+
+[[durable_objects.bindings]]
+name = "BOARD"
+class_name = "Board"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["JobRunner", "Board"]
+
 [vars]
 # 노션 'AI 작업실'의 데이터베이스 (비밀값 아님)
 NOTION_REQUESTS_DS_ID = "f94353fc-fe53-4f8a-a61d-380c1bee9200"
 NOTION_RECORDS_DS_ID = "c813bcaa-10e8-42f5-baaa-b7c68a9ca9c4"
-# Coral Bricks (https://www.coralbricks.ai/docs). 모델 ID는 /api/models 로 확인 후 바꾸세요.
+NOTION_HOME_URL = "https://app.notion.com/p/4004a300643981469011d946e03f18f0"
+# 자동 모드에서 시도하는 순서. 앞에서 안 되면(키·카드 문제) 다음으로 넘어갑니다.
+AUTO_ORDER = "coral,hive,free"
+# Coral Bricks (https://www.coralbricks.ai/docs)
 CORAL_BASE_URL = "https://inference.coralbricks.ai/v1"
 CORAL_MODEL = "deepseek-v4.1-flash-fast"
 # Hive (https://docs.thehive.ai/docs/chat-completions-openai-compatible-llms)
 HIVE_BASE_URL = "https://api-cdn.thehive.ai/api/v3"
 HIVE_MODEL = "zai-org/glm-5.3-flash"
+# 무료 모델 (Cloudflare가 직접 운영, 2026-10-26 시험에서 가장 빠르고 자료에 충실했음)
+FREE_MODEL = "@cf/google/gemma-4-26b-a4b-it"
 # Hive 검사: Hive 문서의 V3 요청 형식을 확인한 뒤 채웁니다. 본문 틀의 "{{TEXT}}" 자리에 검사할 글이 들어갑니다.
 HIVE_CHECK_URL = ""
 HIVE_CHECK_BODY = ""
