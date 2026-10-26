@@ -21,9 +21,18 @@ async function digest(s: string): Promise<Uint8Array> {
   return new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)));
 }
 
+// 입력창 암호는 16자 이상이어야 씁니다. 이 암호만 알면 노션에 연결된 자료를 AI로 읽을 수 있으므로 짧은 암호는 받지 않습니다.
+export const PASSCODE_MIN = 16;
+export function passcodeConfigured(expected: string | undefined): expected is string {
+  return typeof expected === "string" && expected.length >= PASSCODE_MIN;
+}
+export const PASSCODE_UNSET =
+  "실행기의 입력창 암호(WEB_PASSCODE)가 비어 있거나 16자보다 짧아서 아직 열 수 없습니다. " +
+  "Cloudflare → ai-desk → Settings → Variables and Secrets에서 WEB_PASSCODE를 16자 이상으로 바꾸고(종류는 Secret) Deploy를 누른 뒤, 그 값을 여기에 넣어 주세요.";
+
 // 입력창 암호 확인. 길이와 관계없이 같은 시간이 걸리도록 해시끼리 비교합니다.
 export async function passcodeOk(expected: string | undefined, given: string | null): Promise<boolean> {
-  if (!expected || expected.length < 16 || !given) return false;
+  if (!passcodeConfigured(expected) || !given) return false;
   const [a, b] = await Promise.all([digest(expected), digest(given.trim())]);
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];

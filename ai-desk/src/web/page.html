@@ -282,15 +282,25 @@
     catch (e) { throw new Error('연결이 끊겼습니다. 인터넷 연결을 확인해 주세요.'); }
     let data = {};
     try { data = await res.json(); } catch (e) {}
-    if (res.status === 401) { showLock(data.error); const err = new Error('locked'); err.locked = true; throw err; }
+    if (res.status === 401) { showLock(data.error, data.code); const err = new Error('locked'); err.locked = true; throw err; }
     if (!res.ok || data.ok === false) throw new Error(data.error || ('오류 ' + res.status));
     return data;
   }
 
   // ---------- 암호 ----------
-  function showLock(text) {
+  // 실행기 쪽 암호가 비었거나 짧으면, 무엇을 넣어도 열리지 않으므로 고치는 방법을 먼저 보여 줍니다.
+  async function checkServerPass() {
+    try {
+      const h = await (await fetch('/health')).json();
+      if (h && h.secrets && h.secrets.WEB_PASSCODE === false && !$('lockMsg').textContent) {
+        $('lockMsg').textContent = '실행기의 입력창 암호(WEB_PASSCODE)가 비어 있거나 16자보다 짧아서 아직 열 수 없습니다. Cloudflare → ai-desk → Settings → Variables and Secrets에서 WEB_PASSCODE를 16자 이상으로 바꾸고(종류는 Secret) Deploy를 누른 뒤, 그 값을 여기에 넣어 주세요.';
+      }
+    } catch (e) {}
+  }
+  function showLock(text, code) {
     $('lock').hidden = false;
-    $('lockMsg').textContent = pass ? (text || '암호가 맞지 않습니다.') : '';
+    $('lockMsg').textContent = code === 'passcode_unset' ? text : pass ? (text || '암호가 맞지 않습니다.') : '';
+    if (!pass && !code) checkServerPass();
     setTimeout(() => $('passInput').focus(), 0);
   }
   $('lockForm').addEventListener('submit', async (e) => {

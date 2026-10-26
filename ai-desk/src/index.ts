@@ -6,7 +6,7 @@ import { sweep } from "./intake";
 import { Notion, pageTitle } from "./notion";
 import { autoOrder, probe, ProviderId, WorkerChoice } from "./providers";
 import { boardStub, runnerStub } from "./runner";
-import { clip, cleanEnv, errorMessage, json, passcodeOk } from "./util";
+import { clip, cleanEnv, errorMessage, json, PASSCODE_UNSET, passcodeConfigured, passcodeOk } from "./util";
 import PAGE_HTML from "./web/page.html";
 import { APPLE_ICON_PNG_BASE64, ICON_SVG, MANIFEST } from "./web/assets";
 
@@ -121,7 +121,7 @@ function health(env: Env): Response {
       NOTION_TOKEN: Boolean(env.NOTION_TOKEN),
       CORAL_API_KEY: Boolean(env.CORAL_API_KEY),
       HIVE_API_KEY: Boolean(env.HIVE_API_KEY),
-      WEB_PASSCODE: Boolean(env.WEB_PASSCODE && env.WEB_PASSCODE.length >= 16),
+      WEB_PASSCODE: passcodeConfigured(env.WEB_PASSCODE),
     },
     settings: {
       NOTION_REQUESTS_DS_ID: Boolean(env.NOTION_REQUESTS_DS_ID),
@@ -166,8 +166,11 @@ export async function handleFetch(req: Request, rawEnv: Env): Promise<Response> 
     }
 
     if (path.startsWith("/api/")) {
+      if (!passcodeConfigured(env.WEB_PASSCODE)) {
+        return json({ ok: false, code: "passcode_unset", error: PASSCODE_UNSET }, 401);
+      }
       if (!(await passcodeOk(env.WEB_PASSCODE, req.headers.get("x-desk-passcode")))) {
-        return json({ ok: false, error: "암호가 맞지 않거나, 실행기에 입력창 암호(WEB_PASSCODE, 16자 이상)가 설정되지 않았습니다." }, 401);
+        return json({ ok: false, code: "passcode_wrong", error: "암호가 맞지 않습니다. Cloudflare에 넣어 둔 WEB_PASSCODE 값을 그대로 넣어 주세요." }, 401);
       }
       if (path === "/api/jobs" && req.method === "GET") return json({ ok: true, ...(await listJobs(env)) });
       if (path === "/api/jobs" && req.method === "POST") {

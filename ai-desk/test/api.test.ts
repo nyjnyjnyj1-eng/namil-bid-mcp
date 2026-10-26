@@ -50,13 +50,22 @@ describe("입력창 API", () => {
     world.install();
     const env = makeEnv(world);
     expect((await call(env, "/api/jobs", { pass: null })).status).toBe(401);
-    expect((await call(env, "/api/jobs", { method: "POST", body: JSON.stringify({ text: "x" }), pass: "wrong" })).status).toBe(401);
+    const wrong = await call(env, "/api/jobs", { method: "POST", body: JSON.stringify({ text: "x" }), pass: "wrong" });
+    expect(wrong.status).toBe(401);
+    expect(((await wrong.json()) as any).code).toBe("passcode_wrong");
     expect(world.calls).toHaveLength(0);
   });
 
-  it("실행기 암호가 16자보다 짧게 설정돼 있으면 입력창을 막는다", async () => {
+  it("실행기 암호가 16자보다 짧게 설정돼 있으면 입력창을 막고, 고치는 방법을 알려 준다", async () => {
     const env = makeEnv(new FakeWorld(), { WEB_PASSCODE: "short" });
-    expect((await call(env, "/api/jobs", { pass: "short" })).status).toBe(401);
+    const res = await call(env, "/api/jobs", { pass: "short" });
+    expect(res.status).toBe(401);
+    const body = (await res.json()) as any;
+    expect(body.code).toBe("passcode_unset");
+    expect(body.error).toContain("16자 이상");
+    expect(body.error).not.toContain("short");
+    const health = JSON.parse(await (await call(env, "/health", { pass: null })).text());
+    expect(health.secrets.WEB_PASSCODE).toBe(false);
   });
 
   it("붙여넣다 딸려 온 공백이 있어도 암호를 받아들인다", async () => {
