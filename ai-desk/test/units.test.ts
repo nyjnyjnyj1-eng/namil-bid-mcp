@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { blocksFingerprint, blocksToText, inlineRuns, markdownToBlocks, notionId, notionRefsFromText } from "../src/blocks";
-import { newState, renderResult } from "../src/job";
+import { flattenHeadings, linkSource, newState, renderResult } from "../src/job";
 import { parseModelOutput } from "../src/protocol";
 import { contentOf, parseSse, workerFromName } from "../src/providers";
 import { cleanEnv, kst, passcodeOk } from "../src/util";
@@ -103,6 +103,23 @@ describe("결과 정리", () => {
     expect(md).toContain("처리: 무료 모델 (gemma-4-26b-a4b-it)");
     expect(md).toContain("건너뜀: Coral: 계정에 카드 등록이 필요합니다");
     expect(md).toContain("2026-10-26 14:03 (한국 시간)");
+  });
+  it("정리 모드에서 모델이 쓴 제목은 굵은 글씨로 바꾸고 코드 블록 안은 그대로 둔다", () => {
+    expect(flattenHeadings("### 상태별 정리\n본문\n## **굵은 제목** ##\n```\n# 주석\n```")).toBe(
+      "**상태별 정리**\n본문\n**굵은 제목**\n```\n# 주석\n```",
+    );
+    const s = newState("web-3", { source: "web", title: "t", text: "x", worker: "auto", notionSearch: false, save: true, rounds: 3 });
+    s.answer = { result: "### 요약\n내용", evidence: [], limits: [], nextSteps: [], sources: [] };
+    expect(renderResult(s)).toContain("### 새 결과\n**요약**\n내용");
+  });
+  it("사용한 자료의 노션 ID는 링크로 바꾸고, 다른 글은 그대로 둔다", () => {
+    expect(linkSource("사용법 (ID 4004a300-6439-812d-b06e-f53773fd50b7)")).toBe(
+      "[사용법](https://www.notion.so/4004a3006439812db06ef53773fd50b7)",
+    );
+    expect(linkSource("[입찰 노트] ID: 0123456789ABCDEF0123456789ABCDEF")).toBe(
+      "[입찰 노트](https://www.notion.so/0123456789abcdef0123456789abcdef)",
+    );
+    expect(linkSource("지시서 본문")).toBe("지시서 본문");
   });
   it("간단 모드는 답만 보여 주고 참고 사항은 끝에 붙인다", () => {
     const s = newState("web-2", { source: "web", title: "t", text: "x", worker: "auto", notionSearch: false, save: false, rounds: 3 });

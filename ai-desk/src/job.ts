@@ -414,6 +414,28 @@ function infoLines(s: JobState): string[] {
   return lines;
 }
 
+// 정리 모드에서 모델이 쓴 제목(#, ## …)은 굵은 글씨로 바꿔, '새 결과' 같은 칸 제목과 섞이지 않게 합니다. 코드 블록 안은 그대로 둡니다.
+export function flattenHeadings(md: string): string {
+  let fenced = false;
+  return md
+    .split("\n")
+    .map((line) => {
+      if (/^\s*```/.test(line)) fenced = !fenced;
+      if (fenced) return line;
+      const m = /^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/.exec(line);
+      return m ? `**${m[1].replace(/^\*\*(.*)\*\*$/, "$1")}**` : line;
+    })
+    .join("\n");
+}
+
+// '사용한 자료'에 노션 페이지 ID가 적혀 있으면 바로 열 수 있는 링크로 바꿉니다.
+export function linkSource(x: string): string {
+  const m = /^(.*?)\s*\(?\bID[:\s]*([0-9a-f]{8}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{4}-?[0-9a-f]{12})\)?\s*$/i.exec(x);
+  if (!m) return x;
+  const title = m[1].replace(/[[\]]/g, "").trim() || "노션 페이지";
+  return `[${title}](https://www.notion.so/${m[2].replace(/-/g, "").toLowerCase()})`;
+}
+
 export function renderResult(s: JobState): string {
   const notes = [...new Set(s.notes)];
   if (!s.structured) {
@@ -424,7 +446,7 @@ export function renderResult(s: JobState): string {
   const a = s.answer!;
   return [
     "### 새 결과",
-    a.result,
+    flattenHeadings(a.result),
     "### 근거",
     bullets(a.evidence),
     "### 한계",
@@ -432,7 +454,7 @@ export function renderResult(s: JobState): string {
     "### 다음 할 일",
     bullets(a.nextSteps),
     "### 사용한 자료",
-    bullets(a.sources),
+    bullets(a.sources.map(linkSource)),
     "### 실행 정보",
     ...infoLines(s),
   ].join("\n");
